@@ -1,76 +1,123 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact Book</title>
-    <link rel="stylesheet" href="styles.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f4f4f4;
-        }
-        .container {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            width: 300px;
-            text-align: center;
-        }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        input, button {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        button {
-            background-color: #28a745;
-            color: white;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #218838;
-        }
-        ul {
-            list-style: none;
-            padding: 0;
-        }
-        li {
-            background: #f9f9f9;
-            padding: 10px;
-            margin-top: 5px;
-            border-radius: 5px;
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-    <h2>Contact Book</h2>
-    
-    <div class="form-group">
-        <input type="text" id="name" placeholder="Enter Name">
-        <input type="text" id="phone" placeholder="Enter Phone Number">
-        <input type="email" id="email" placeholder="Enter Email">
-        <input type="text" id="address" placeholder="Enter Address">
-        <button onclick="addContact()">Add Contact</button>
-    </div>
-    
-    <input type="text" id="search" placeholder="Search Contact" onkeyup="searchContact()">
-    
-    <ul id="contact-list"></ul>
-</div>
+import os
+import tkinter as tk
+from tkinter import messagebox, simpledialog
 
-<script src="script.js"></script>
-</body>
-</html>
+class ContactBook:
+    def __init__(self, filename="contacts.txt"):
+        self.filename = filename
+        self.contacts = self.load_contacts()
+
+    def load_contacts(self):
+        contacts = []
+        if not os.path.exists(self.filename):
+            open(self.filename, 'a').close()
+            return contacts
+
+        with open(self.filename, "r") as file:
+            for line in file:
+                parts = line.strip().split("|")
+                if len(parts) == 4:
+                    name, phone, email, address = parts
+                    contacts.append({"name": name, "phone": phone, "email": email, "address": address})
+        return contacts
+
+    def save_contacts(self):
+        with open(self.filename, "w") as file:
+            for contact in self.contacts:
+                file.write(f"{contact['name']}|{contact['phone']}|{contact['email']}|{contact['address']}\n")
+
+    def add_contact(self, name, phone, email, address):
+        self.contacts.append({"name": name, "phone": phone, "email": email, "address": address})
+        self.save_contacts()
+
+    def get_contacts(self):
+        return self.contacts
+
+    def search_contact(self, keyword):
+        return [c for c in self.contacts if keyword.lower() in c['name'].lower() or keyword in c['phone']]
+
+    def update_contact(self, name, new_phone, new_email, new_address):
+        for contact in self.contacts:
+            if contact['name'].lower() == name.lower():
+                contact['phone'] = new_phone
+                contact['email'] = new_email
+                contact['address'] = new_address
+                self.save_contacts()
+                return True
+        return False
+
+    def delete_contact(self, name):
+        for contact in self.contacts:
+            if contact['name'].lower() == name.lower():
+                self.contacts.remove(contact)
+                self.save_contacts()
+                return True
+        return False
+
+class ContactBookApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Contact Book")
+        self.book = ContactBook()
+
+        self.listbox = tk.Listbox(root, width=50, height=15)
+        self.listbox.pack()
+        self.load_contacts()
+
+        tk.Button(root, text="Add Contact", command=self.add_contact).pack()
+        tk.Button(root, text="Search Contact", command=self.search_contact).pack()
+        tk.Button(root, text="Update Contact", command=self.update_contact).pack()
+        tk.Button(root, text="Delete Contact", command=self.delete_contact).pack()
+        tk.Button(root, text="Exit", command=root.quit).pack()
+
+    def load_contacts(self):
+        self.listbox.delete(0, tk.END)
+        for contact in self.book.get_contacts():
+            self.listbox.insert(tk.END, f"{contact['name']} - {contact['phone']} - {contact['email']} - {contact['address']}")
+
+    def add_contact(self):
+        name = simpledialog.askstring("Add Contact", "Enter Name:")
+        phone = simpledialog.askstring("Add Contact", "Enter Phone:")
+        email = simpledialog.askstring("Add Contact", "Enter Email:")
+        address = simpledialog.askstring("Add Contact", "Enter Address:")
+        if name and phone and email and address:
+            self.book.add_contact(name, phone, email, address)
+            self.load_contacts()
+            messagebox.showinfo("Success", "Contact added successfully!")
+        else:
+            messagebox.showwarning("Input Error", "All fields are required!")
+
+    def search_contact(self):
+        keyword = simpledialog.askstring("Search Contact", "Enter Name or Phone:")
+        results = self.book.search_contact(keyword)
+        self.listbox.delete(0, tk.END)
+        for contact in results:
+            self.listbox.insert(tk.END, f"{contact['name']} - {contact['phone']} - {contact['email']} - {contact['address']}")
+        if not results:
+            messagebox.showinfo("Search", "No matching contact found.")
+
+    def update_contact(self):
+        name = simpledialog.askstring("Update Contact", "Enter Name to Update:")
+        if not name:
+            return
+        new_phone = simpledialog.askstring("Update Contact", "Enter New Phone:")
+        new_email = simpledialog.askstring("Update Contact", "Enter New Email:")
+        new_address = simpledialog.askstring("Update Contact", "Enter New Address:")
+        if self.book.update_contact(name, new_phone, new_email, new_address):
+            self.load_contacts()
+            messagebox.showinfo("Success", "Contact updated successfully!")
+        else:
+            messagebox.showwarning("Update Error", "Contact not found!")
+
+    def delete_contact(self):
+        name = simpledialog.askstring("Delete Contact", "Enter Name to Delete:")
+        if self.book.delete_contact(name):
+            self.load_contacts()
+            messagebox.showinfo("Success", "Contact deleted successfully!")
+        else:
+            messagebox.showwarning("Delete Error", "Contact not found!")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ContactBookApp(root)
+    root.mainloop()
